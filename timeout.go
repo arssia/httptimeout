@@ -15,6 +15,7 @@
 package timeout
 
 import (
+	"crypto/tls"
 	"net"
 	"net/http"
 	"time"
@@ -82,14 +83,39 @@ func (l *Listener) Accept() (net.Conn, error) {
 	return tc, nil
 }
 
-func NewListener(network, addr string, readTimeout, writeTimeout time.Duration) (net.Listener, error) {
-	l, err := net.Listen("tcp", addr)
+func NewListener(addr string, readTimeout, writeTimeout time.Duration) (net.Listener, error) {
+	conn, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 
 	tl := &Listener{
-		Listener:     l,
+		Listener:     conn,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+	}
+	return tl, nil
+}
+
+func NewListenerTLS(addr, certFile, keyFile string, readTimeout, writeTimeout time.Duration) (net.Listener, error) {
+	config := &tls.Config{}
+	if config.NextProtos == nil {
+		config.NextProtos = []string{"http/1.1"}
+	}
+
+	var err error
+	config.Certificates = make([]tls.Certificate, 1)
+	config.Certificates[0], err = tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	tl := &Listener{
+		Listener:     tls.NewListener(conn, config),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 	}
