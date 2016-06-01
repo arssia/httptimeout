@@ -29,6 +29,7 @@ type Conn struct {
 	WriteTimeout time.Duration
 }
 
+// Read wraps the net.Conn's original Read method.
 func (c *Conn) Read(b []byte) (int, error) {
 	err := c.Conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
 	if err != nil {
@@ -37,6 +38,7 @@ func (c *Conn) Read(b []byte) (int, error) {
 	return c.Conn.Read(b)
 }
 
+// Write wraps the net.Conn's original Write method.
 func (c *Conn) Write(b []byte) (int, error) {
 	err := c.Conn.SetWriteDeadline(time.Now().Add(c.WriteTimeout))
 	if err != nil {
@@ -45,6 +47,7 @@ func (c *Conn) Write(b []byte) (int, error) {
 	return c.Conn.Write(b)
 }
 
+// NewTransport returns http/Transport instance with timeout support
 func NewTransport(addr string, timeout time.Duration) *http.Transport {
 	t := &http.Transport{}
 	t.Dial = func(network, addr string) (net.Conn, error) {
@@ -70,6 +73,8 @@ type Listener struct {
 	WriteTimeout time.Duration
 }
 
+// Accept wraps the Accept method of the original Listener. It waits for the next call and returns
+// a Conn which wraps the net.Conn with timeout.
 func (l *Listener) Accept() (net.Conn, error) {
 	c, err := l.Listener.Accept()
 	if err != nil {
@@ -83,8 +88,13 @@ func (l *Listener) Accept() (net.Conn, error) {
 	return tc, nil
 }
 
-func NewListener(addr string, readTimeout, writeTimeout time.Duration) (net.Listener, error) {
-	conn, err := net.Listen("tcp", addr)
+// NewListener runs net.Listen and announces on the network address addr with timeout.
+// The network net must be a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket".
+// For TCP and UDP, the syntax of addr is "host:port", like "127.0.0.1:8080".
+// If host is omitted, as in ":8080", Listen listens on all available interfaces instead of just the interface with the
+// given host address.
+func NewListener(network, addr string, readTimeout, writeTimeout time.Duration) (net.Listener, error) {
+	conn, err := net.Listen(network, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +107,8 @@ func NewListener(addr string, readTimeout, writeTimeout time.Duration) (net.List
 	return tl, nil
 }
 
-func NewListenerTLS(addr, certFile, keyFile string, readTimeout, writeTimeout time.Duration) (net.Listener, error) {
+// NewListenerTLS is just a TLS enabled version of NewListener.
+func NewListenerTLS(network, addr, certFile, keyFile string, readTimeout, writeTimeout time.Duration) (net.Listener, error) {
 	config := &tls.Config{}
 	if config.NextProtos == nil {
 		config.NextProtos = []string{"http/1.1"}
@@ -110,7 +121,7 @@ func NewListenerTLS(addr, certFile, keyFile string, readTimeout, writeTimeout ti
 		return nil, err
 	}
 
-	conn, err := net.Listen("tcp", addr)
+	conn, err := net.Listen(network, addr)
 	if err != nil {
 		return nil, err
 	}
