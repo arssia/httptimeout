@@ -48,17 +48,17 @@ func (c *Conn) Write(b []byte) (int, error) {
 }
 
 // NewTransport returns http/Transport instance with timeout support
-func NewTransport(addr string, timeout time.Duration) *http.Transport {
+func NewTransport(addr string, readTimeout, writeTimeout time.Duration) *http.Transport {
 	t := &http.Transport{}
 	t.Dial = func(network, addr string) (net.Conn, error) {
-		conn, err := net.DialTimeout(network, addr, timeout)
+		conn, err := net.DialTimeout(network, addr, readTimeout)
 		if err != nil {
 			return nil, err
 		}
 		tc := &Conn{
 			Conn:         conn,
-			ReadTimeout:  timeout,
-			WriteTimeout: timeout,
+			ReadTimeout:  readTimeout,
+			WriteTimeout: writeTimeout,
 		}
 		return tc, nil
 	}
